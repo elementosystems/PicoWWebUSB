@@ -1,33 +1,72 @@
-cmake_minimum_required(VERSION 3.20)
+# Generated Cmake Pico project file
 
-include(${CMAKE_CURRENT_SOURCE_DIR}/tinyusb/hw/bsp/family_support.cmake)
+cmake_minimum_required(VERSION 3.13)
 
-# gets PROJECT name for the example (e.g. <BOARD>-<DIR_NAME>)
-family_get_project_name(PROJECT ${CMAKE_CURRENT_LIST_DIR})
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(${PROJECT} C CXX ASM)
+# Initialise pico_sdk from installed location
+# (note this can come from environment, CMake cache etc)
 
-# Checks this example is valid for the family and initializes the project
-family_initialize_project(${PROJECT} ${CMAKE_CURRENT_LIST_DIR})
+# == DO NOT EDIT THE FOLLOWING LINES for the Raspberry Pi Pico VS Code Extension to work ==
 
-# Espressif has its own cmake build system
-if(FAMILY STREQUAL "espressif")
-  return()
+add_compile_definitions(CFG_TUSB_MCU=OPT_MCU_RP2040)
+
+if(WIN32)
+    set(USERHOME $ENV{USERPROFILE})
+else()
+    set(USERHOME $ENV{HOME})
 endif()
+set(sdkVersion 2.1.1)
+set(toolchainVersion 14_2_Rel1)
+set(picotoolVersion 2.1.1)
+set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
+if (EXISTS ${picoVscode})
+    include(${picoVscode})
+endif()
+# ====================================================================================
+set(PICO_BOARD pico_w CACHE STRING "Board type")
 
-add_executable(${PROJECT})
+# Pull in Raspberry Pi Pico SDK (must be before project)
+include(pico_sdk_import.cmake)
 
-# Example source
-target_sources(${PROJECT} PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/main.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/usb_descriptors.c
+project(PicoWWEBUSB C CXX ASM)
+
+# Initialise the Raspberry Pi Pico SDK
+pico_sdk_init()
+
+#add_subdirectory(tinyusb/src)
+# Add executable. Default name is the project name, version 0.1
+
+add_executable(PicoWWEBUSB src/PicoWWEBUSB.c 
+                            src/usb_descriptors.c)
+#tinyusb_target_add(PicoWWEBUSB)
+
+pico_set_program_name(PicoWWEBUSB "PicoWWEBUSB")
+pico_set_program_version(PicoWWEBUSB "0.1")
+
+# Modify the below lines to enable/disable output over UART/USB
+pico_enable_stdio_uart(PicoWWEBUSB 0)
+pico_enable_stdio_usb(PicoWWEBUSB 0)
+
+# Add the standard library to the build
+target_link_libraries(PicoWWEBUSB
+        pico_stdlib
+        tinyusb_board
+        tinyusb_device
         )
 
-# Example include
-target_include_directories(${PROJECT} PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
+# Add the standard include files to the build
+target_include_directories(PicoWWEBUSB PRIVATE BEFORE
+        ${CMAKE_CURRENT_LIST_DIR}/src
+        ${CMAKE_CURRENT_LIST_DIR}/tinyusb/src
+)
+
+# Add any user requested libraries
+target_link_libraries(PicoWWEBUSB 
+        pico_cyw43_arch_none
+        pico_stdlib
         )
 
-# Configure compilation flags and libraries for the example without RTOS.
-# See the corresponding function in hw/bsp/FAMILY/family.cmake for details.
-family_configure_device_example(${PROJECT} noos)
+pico_add_extra_outputs(PicoWWEBUSB)
