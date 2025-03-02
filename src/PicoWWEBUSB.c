@@ -73,7 +73,7 @@ enum  {
 
 static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
 
-#define URL  "example.tinyusb.org/webusb-serial/index.html"
+#define URL  "powerflashutility.bsadashi.work"
 
 const tusb_desc_webusb_url_t desc_url = {
   .bLength         = 3 + sizeof(URL) - 1,
@@ -276,7 +276,7 @@ void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts) {
   // connected
   if (dtr && rts) {
     // print initial message when connected
-    tud_cdc_write_str("\r\nTinyUSB WebUSB device example\r\n");
+    tud_cdc_write_str("\r\nConnect to the PowerFlash Utility\r\n");
   }
 }
 
