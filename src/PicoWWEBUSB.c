@@ -51,6 +51,7 @@
 #include "tusb.h"
 #include "usb_descriptors.h"
 
+#include "pico/cyw43_arch.h"
 //--------------------------------------------------------------------+
 // MACRO CONSTANT TYPEDEF PROTYPES
 //--------------------------------------------------------------------+
@@ -100,6 +101,11 @@ int main(void) {
   if (board_init_after_tusb) {
     board_init_after_tusb();
   }
+
+  if (cyw43_arch_init()) {
+    printf("Wi-Fi init failed");
+    return -1;
+}
 
   while (1) {
     tud_task(); // tinyusb device task
@@ -272,6 +278,7 @@ void led_blinking_task(void) {
   if (board_millis() - start_ms < blink_interval_ms) return; // not enough time
   start_ms += blink_interval_ms;
 
-  board_led_write(led_state);
+  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_state);
   led_state = 1 - led_state; // toggle
+  
 }
