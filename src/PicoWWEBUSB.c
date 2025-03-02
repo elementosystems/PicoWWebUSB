@@ -52,6 +52,7 @@
 #include "usb_descriptors.h"
 
 #include "pico/cyw43_arch.h"
+#include "hardware/gpio.h"
 //--------------------------------------------------------------------+
 // MACRO CONSTANT TYPEDEF PROTYPES
 //--------------------------------------------------------------------+
@@ -83,13 +84,29 @@ const tusb_desc_webusb_url_t desc_url = {
 
 static bool web_serial_connected = false;
 
+// GPIO Pins and Pin Mapping
+const uint GPIO_PINS[] = {11, 12, 13};
+const int NUM_GPIO_PINS = sizeof(GPIO_PINS) / sizeof(GPIO_PINS[0]);
+
+// Command definitions
+enum {
+  CMD_GPIO_11 = 0x0B,
+  CMD_GPIO_12 = 0x0C,
+  CMD_GPIO_13 = 0x0D,
+  CMD_ON = 0x01,
+  CMD_OFF = 0x00
+};
+
 //------------- prototypes -------------//
 void led_blinking_task(void);
 void cdc_task(void);
+void gpio_init_all(); // Function prototype for gpio_init_all
+void process_usb_commands(const uint8_t* buffer, uint32_t count);
 
 /*------------- MAIN -------------*/
 int main(void) {
   board_init();
+  gpio_init_all();
 
   // init device stack on configured roothub port
   tusb_rhport_init_t dev_init = {
@@ -226,12 +243,13 @@ bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_requ
 void tud_vendor_rx_cb(uint8_t itf, uint8_t const* buffer, uint16_t bufsize) {
   (void) itf;
 
+  process_usb_commands(buffer, bufsize);
   echo_all(buffer, bufsize);
 
   // if using RX buffered is enabled, we need to flush the buffer to make room for new data
   #if CFG_TUD_VENDOR_RX_BUFSIZE > 0
   tud_vendor_read_flush();
-  #endif
+  #endif 
 }
 
 //--------------------------------------------------------------------+
@@ -278,7 +296,52 @@ void led_blinking_task(void) {
   if (board_millis() - start_ms < blink_interval_ms) return; // not enough time
   start_ms += blink_interval_ms;
 
-  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_state);
+  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, (int)led_state);
   led_state = 1 - led_state; // toggle
   
+}
+
+void gpio_init_all() {
+  for (int i = 0; i < NUM_GPIO_PINS; i++) {
+    gpio_init(GPIO_PINS[i]);
+    gpio_set_dir(GPIO_PINS[i], GPIO_OUT);
+    gpio_put(GPIO_PINS[i], 0); // Initialize to OFF
+  }
+}
+
+void process_usb_commands(const uint8_t* buffer, uint32_t count) {
+  // We expect 2 byte commands: [GPIO_PIN_SELECTOR, ON/OFF_STATE]
+  if (count >= 2) {
+    uint8_t pin_selector = buffer[0];
+    uint8_t on_off_state = buffer[1];
+
+    int pin_index = -1;
+
+    switch (pin_selector) {
+        case CMD_GPIO_11:
+            pin_index = 0;
+            break;
+        case CMD_GPIO_12:
+            pin_index = 1;
+            break;
+        case CMD_GPIO_13:
+            pin_index = 2;
+            break;
+        default:
+            // Unknown pin selector
+            break;
+    }
+
+    if (pin_index >= 0) {
+        if (on_off_state == CMD_ON) {
+          gpio_put(GPIO_PINS[pin_index], 1);
+        } else if (on_off_state == CMD_OFF) {
+          gpio_put(GPIO_PINS[pin_index], 0);
+        } else {
+          // Unknown on/off state
+        }
+    }
+    // Process any remaining data
+    process_usb_commands(buffer + 2, count - 2);
+  }
 }
