@@ -55,7 +55,8 @@ target_link_libraries(PicoWWEBUSB
         pico_stdlib
         tinyusb_board
         tinyusb_device
-        pico_cyw43_arch_none
+        pico_cyw43_arch_none        
+        hardware_adc
         )
 
 # Add the standard include files to the build

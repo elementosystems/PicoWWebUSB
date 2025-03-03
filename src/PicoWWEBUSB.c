@@ -46,13 +46,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
+#include "hardware/adc.h"
 #include "bsp/board_api.h"
 #include "tusb.h"
 #include "usb_descriptors.h"
 
 #include "pico/cyw43_arch.h"
 #include "hardware/gpio.h"
+#include "hardware/timer.h"
 //--------------------------------------------------------------------+
 // MACRO CONSTANT TYPEDEF PROTYPES
 //--------------------------------------------------------------------+
@@ -74,6 +75,15 @@ enum  {
 static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
 
 #define URL  "powerflashutility.bsadashi.work"
+
+
+#define ACS712_PIN 26          // ADC pin for ACS712
+      // For a 5A ACS712
+#define ACS712_VCC 5.0          // ACS712 VCC is now 5V
+#define IDEAL_MID_POINT_VOLTAGE (ACS712_VCC / 2.0) // Ideal midpoint is now 2.5V
+#define ADC_INTERVAL_MS 1000    // Now 1000ms for 1 second interval
+#define ADC_RANGE 4096.0
+#define ADC_REF_VOLTAGE 3.3
 
 const tusb_desc_webusb_url_t desc_url = {
   .bLength         = 3 + sizeof(URL) - 1,
@@ -97,16 +107,25 @@ enum {
   CMD_OFF = 0x00
 };
 
+float measured_midpoint_voltage;
+float mV_PER_AMP = 0.185; 
+
 //------------- prototypes -------------//
 void led_blinking_task(void);
 void cdc_task(void);
 void gpio_init_all(); // Function prototype for gpio_init_all
 void process_usb_commands(const uint8_t* buffer, uint32_t count);
+float read_current(void);
+void adc_task(void);
+float measure_midpoint(void);
 
 /*------------- MAIN -------------*/
 int main(void) {
   board_init();
   gpio_init_all();
+  adc_init(); // Initialize ADC
+  adc_gpio_init(ACS712_PIN);
+  adc_select_input(0);
 
   // init device stack on configured roothub port
   tusb_rhport_init_t dev_init = {
@@ -124,10 +143,16 @@ int main(void) {
     return -1;
 }
 
+measured_midpoint_voltage = measure_midpoint();
+printf("Measured Midpoint: %.3f V\n", measured_midpoint_voltage);
+//We calculate the new mV per AMP
+mV_PER_AMP = (measured_midpoint_voltage- IDEAL_MID_POINT_VOLTAGE) /0.0391708 ;
+printf("New mv per amp = %.3f", mV_PER_AMP);
   while (1) {
     tud_task(); // tinyusb device task
     cdc_task();
     led_blinking_task();
+    adc_task();
   }
 }
 
@@ -249,7 +274,7 @@ void tud_vendor_rx_cb(uint8_t itf, uint8_t const* buffer, uint16_t bufsize) {
   // if using RX buffered is enabled, we need to flush the buffer to make room for new data
   #if CFG_TUD_VENDOR_RX_BUFSIZE > 0
   tud_vendor_read_flush();
-  #endif 
+  #endif
 }
 
 //--------------------------------------------------------------------+
@@ -298,7 +323,7 @@ void led_blinking_task(void) {
 
   cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, (int)led_state);
   led_state = 1 - led_state; // toggle
-  
+
 }
 
 void gpio_init_all() {
@@ -342,6 +367,48 @@ void process_usb_commands(const uint8_t* buffer, uint32_t count) {
         }
     }
     // Process any remaining data
-    process_usb_commands(buffer + 2, count - 2);
+      if (count>2){
+        process_usb_commands(buffer + 2, count - 2);
+      }
+  }
+}
+
+float measure_midpoint(void) {
+  const int num_samples = 100;
+  float total_voltage = 0.0;
+  for (int i = 0; i < num_samples; i++) {
+    uint16_t adc_value = adc_read();
+    float voltage = (adc_value * ADC_REF_VOLTAGE ) / ADC_RANGE; // Convert ADC reading to voltage
+    total_voltage += voltage;
+    sleep_ms(1); // Small delay between samples
+  }
+  return total_voltage / num_samples;
+}
+float read_current() {
+  uint16_t adc_value = adc_read();
+  float voltage = (adc_value * ADC_REF_VOLTAGE) / ADC_RANGE; // Convert ADC reading to voltage
+  float current = (voltage - measured_midpoint_voltage) / mV_PER_AMP;
+  return current;
+}
+
+void adc_task(void) {
+  static uint32_t last_adc_read_ms = 0; // Use uint32_t for accurate millisecond tracking
+
+  // Check if 1 second (1000ms) has passed since the last ADC reading
+  if (board_millis() - last_adc_read_ms >= ADC_INTERVAL_MS) {
+    last_adc_read_ms = board_millis(); // Update the last reading time
+
+    float current = read_current();
+    // You can now use the 'current' value
+    //For example, sending it to the webUSB and CDC:
+    char current_str[32];
+    snprintf(current_str, sizeof(current_str), "Current: %.3f A\r\n", current);
+    uint32_t len = strlen(current_str);
+
+    uint8_t current_message[len];
+    for (int i = 0; i<len;i++){
+      current_message[i]= current_str[i];
+    }
+    echo_all(current_message, len);
   }
 }
