@@ -50,7 +50,7 @@
 #include "bsp/board_api.h"
 #include "tusb.h"
 #include "usb_descriptors.h"
-
+#include "ssd1306.h"
 #include "pico/cyw43_arch.h"
 #include "hardware/gpio.h"
 #include "hardware/timer.h"
@@ -92,6 +92,17 @@ static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
 #define R1 30000.0f // 30k ohms
 #define R2 7500.0f  // 7.5k ohms
 
+// OLED parameters
+#define OLED_WIDTH 64
+#define OLED_HEIGHT 48
+#define OLED_ADDRESS 0x3C // Most common address, adjust if needed
+#define OLED_SDA_PIN 16    // Change these to your wiring
+#define OLED_SCL_PIN 17
+i2c_inst_t *i2c = i2c0;    // Change to i2c1 if needed
+
+// Global display object
+ssd1306_t disp;
+
 
 const tusb_desc_webusb_url_t desc_url = {
   .bLength         = 3 + sizeof(URL) - 1,
@@ -128,12 +139,17 @@ void adc_task(void);
 float measure_midpoint(void);
 float read_voltage(uint8_t channel);
 void setup_adc();
+void update_oled(float current, float voltage);
 
 /*------------- MAIN -------------*/
 int main(void) {
   board_init();
   gpio_init_all();
   setup_adc();
+  i2c_init(i2c, 100 * 1000); // 100 kHz
+  gpio_set_function(OLED_SCL_PIN, GPIO_FUNC_I2C);
+  gpio_pull_up(OLED_SDA_PIN);
+  gpio_pull_up(OLED_SCL_PIN);
 
   // init device stack on configured roothub port
   tusb_rhport_init_t dev_init = {
@@ -149,7 +165,13 @@ int main(void) {
   if (cyw43_arch_init()) {
     printf("Wi-Fi init failed");
     return -1;
-}
+  }
+      // Initialize OLED
+  if (!ssd1306_init(&disp, OLED_WIDTH, OLED_HEIGHT, OLED_ADDRESS, i2c)) {
+    printf("OLED initialization failed!\n");
+  }
+    ssd1306_clear(&disp);
+    ssd1306_show(&disp); // Clear the display initially
 
 measured_midpoint_voltage = measure_midpoint();
 printf("Measured Midpoint: %.3f V\n", measured_midpoint_voltage);
@@ -427,6 +449,8 @@ void adc_task(void) {
       current_message[i]= current_str[i];
     }
     echo_all(current_message, len);
+    // Update OLED with current values
+    update_oled(current, voltage);
   }
 }
 
@@ -435,4 +459,20 @@ float read_voltage(uint8_t channel) {
   sleep_us(10);  // Allow ADC to stabilize
   uint16_t raw = adc_read();
   return ((raw * ADC_REF_VOLTAGE) / 4095.0f)* ((R1 + R2) / R2);
+}
+
+void update_oled(float current, float voltage) {
+  char current_str[32];
+  char voltage_str[32];
+
+  ssd1306_clear(&disp); // Clear the buffer
+
+  // Format and draw the voltage and current strings
+  snprintf(current_str, sizeof(current_str), "Current: %.3f A", current);
+  snprintf(voltage_str, sizeof(voltage_str), "Voltage: %.3f V", voltage);
+
+  ssd1306_draw_string(&disp, 0, 0, 1, voltage_str);
+  ssd1306_draw_string(&disp, 0, 16, 1, current_str);
+
+  ssd1306_show(&disp); // Update the physical display
 }
