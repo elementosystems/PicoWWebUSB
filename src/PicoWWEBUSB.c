@@ -145,11 +145,12 @@ void update_oled(float current, float voltage);
 int main(void) {
   board_init();
   gpio_init_all();
-  setup_adc();
   i2c_init(i2c, 100 * 1000); // 100 kHz
+  gpio_set_function(OLED_SDA_PIN, GPIO_FUNC_I2C);
   gpio_set_function(OLED_SCL_PIN, GPIO_FUNC_I2C);
   gpio_pull_up(OLED_SDA_PIN);
   gpio_pull_up(OLED_SCL_PIN);
+  setup_adc();
 
   // init device stack on configured roothub port
   tusb_rhport_init_t dev_init = {
@@ -440,15 +441,20 @@ void adc_task(void) {
     float voltage = read_voltage(CHANNEL_1);
     char current_str[32];
     char voltage_str[32];
-    snprintf(current_str, sizeof(current_str), "Current: %.3f A\r\n", current);
-    snprintf(voltage_str, sizeof(voltage_str), "Voltage: %.3f V\r\n", voltage);
-    uint32_t len = strlen(current_str)+strlen(voltage_str);
+    snprintf(current_str, sizeof(current_str), "Current: %.2f A\r\n", current);
+    snprintf(voltage_str, sizeof(voltage_str), "Voltage: %.2f V\r\n", voltage);
 
-    uint8_t current_message[len];
-    for (int i = 0; i<len;i++){
-      current_message[i]= current_str[i];
-    }
-    echo_all(current_message, len);
+    // Combined message with both strings
+    uint32_t len_current = strlen(current_str);
+    uint32_t len_voltage = strlen(voltage_str);
+    uint32_t len_total = len_current + len_voltage;
+
+    uint8_t current_message[len_total + 1];
+    memcpy(current_message, current_str, len_current);
+    memcpy(current_message + len_current, voltage_str, len_voltage);
+    current_message[len_total] = '\0';
+
+    echo_all(current_message, len_total);
     // Update OLED with current values
     update_oled(current, voltage);
   }
@@ -458,7 +464,18 @@ float read_voltage(uint8_t channel) {
   adc_select_input(channel);
   sleep_us(10);  // Allow ADC to stabilize
   uint16_t raw = adc_read();
-  return ((raw * ADC_REF_VOLTAGE) / 4095.0f)* ((R1 + R2) / R2);
+  float measured = (raw * ADC_REF_VOLTAGE) / 4095.0f;
+  
+  // Subtract an offset to account for ADC baseline (adjust as measured)
+  const float baseline_offset = 0.026f; // ~26 mV offset from ADC (tweak if needed)
+  if (measured > baseline_offset) {
+      measured -= baseline_offset;
+  } else {
+      measured = 0;
+  }
+  
+  // Apply voltage divider correction: Vin = V_measured * ((R1 + R2) / R2)
+  return measured * ((R1 + R2) / R2);
 }
 
 void update_oled(float current, float voltage) {
@@ -468,11 +485,11 @@ void update_oled(float current, float voltage) {
   ssd1306_clear(&disp); // Clear the buffer
 
   // Format and draw the voltage and current strings
-  snprintf(current_str, sizeof(current_str), "Current: %.3f A", current);
-  snprintf(voltage_str, sizeof(voltage_str), "Voltage: %.3f V", voltage);
+  snprintf(current_str, sizeof(current_str), "%.2f A", current);
+  snprintf(voltage_str, sizeof(voltage_str), "%.2f V", voltage);
 
-  ssd1306_draw_string(&disp, 0, 0, 1, voltage_str);
-  ssd1306_draw_string(&disp, 0, 16, 1, current_str);
+  ssd1306_draw_string(&disp, 0, 0, 1.6, voltage_str);
+  ssd1306_draw_string(&disp, 0, 16, 1.6, current_str);
 
   ssd1306_show(&disp); // Update the physical display
 }
