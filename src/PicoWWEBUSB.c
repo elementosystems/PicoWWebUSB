@@ -114,7 +114,7 @@ const tusb_desc_webusb_url_t desc_url = {
 static bool web_serial_connected = false;
 
 // GPIO Pins and Pin Mapping
-const uint GPIO_PINS[] = {11, 12, 13};
+const uint GPIO_PINS[] = {11, 12, 13, 14};
 const int NUM_GPIO_PINS = sizeof(GPIO_PINS) / sizeof(GPIO_PINS[0]);
 
 // Command definitions
@@ -122,6 +122,7 @@ enum {
   CMD_GPIO_11 = 0x0B,
   CMD_GPIO_12 = 0x0C,
   CMD_GPIO_13 = 0x0D,
+  CMD_GPIO_14 = 0x0E,
   CMD_ON = 0x01,
   CMD_OFF = 0x00
 };
@@ -389,6 +390,9 @@ void process_usb_commands(const uint8_t* buffer, uint32_t count) {
             break;
         case CMD_GPIO_13:
             pin_index = 2;
+            break;
+        case CMD_GPIO_14:
+            pin_index = 3;
             break;
         default:
             // Unknown pin selector
