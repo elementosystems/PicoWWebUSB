@@ -83,7 +83,7 @@ static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
 #define IDEAL_MID_POINT_VOLTAGE (ACS712_VCC / 2.0) // Ideal midpoint is now 2.5V
 #define ADC_INTERVAL_MS 1000    // Now 1000ms for 1 second interval
 #define ADC_RANGE 4096.0
-#define ADC_REF_VOLTAGE 3.3
+#define ADC_REF_VOLTAGE 5
 
 #define CHANNEL_0 0   // Your existing ADC0 operation
 #define CHANNEL_1 1   // 12V measurement
