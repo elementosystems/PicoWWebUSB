@@ -1,0 +1,38 @@
+---
+name: Mark stale issues and pull requests
+
+on:
+  schedule:
+    - cron: '34 10 * * *'
+
+jobs:
+  stale:
+    runs-on: self-hosted
+    permissions:
+      issues: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GH_TOKEN }}
+          days-before-stale: 30
+          days-before-close: 7
+          stale-issue-message: >
+            This issue has been inactive for 30 days. Please update with current status or it will be closed in 7 days.
+            **Need more time?** Just comment "keep-open" to maintain visibility.
+          stale-pr-message: >
+            This pull request hasn't had new commits or comments in 30 days. Please either:
+            - Update with requested changes
+            - Comment with timeline for completion
+            - Close if no longer relevant
+          close-issue-message: >
+            Closed due to 7 days of inactivity after staleness notice. To reopen,
+            comment with updated details and tag @maintainers.
+          close-pr-message: >
+            Closed after 7 days of inactivity. Please open a new PR if work resumes.
+          stale-issue-label: 'status:stale'
+          stale-pr-label: 'status:stale'
+          exempt-issue-labels: 'priority:critical,security'
+          exempt-pr-labels: 'priority:critical,security'
+          operations-per-run: 30
