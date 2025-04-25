@@ -40,7 +40,8 @@ pico_sdk_init()
 # Add executable. Default name is the project name, version 0.1
 
 add_executable(PicoWWEBUSB src/PicoWWEBUSB.c 
-                            src/usb_descriptors.c)
+                            src/usb_descriptors.c
+                            src/ssd1306.c)
 #tinyusb_target_add(PicoWWEBUSB)
 
 pico_set_program_name(PicoWWEBUSB "PicoWWEBUSB")
@@ -57,6 +58,7 @@ target_link_libraries(PicoWWEBUSB
         tinyusb_device
         pico_cyw43_arch_none        
         hardware_adc
+        hardware_i2c
         )
 
 # Add the standard include files to the build

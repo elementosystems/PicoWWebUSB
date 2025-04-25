@@ -50,7 +50,7 @@
 #include "bsp/board_api.h"
 #include "tusb.h"
 #include "usb_descriptors.h"
-
+#include "ssd1306.h"
 #include "pico/cyw43_arch.h"
 #include "hardware/gpio.h"
 #include "hardware/timer.h"
@@ -78,12 +78,31 @@ static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
 
 
 #define ACS712_PIN 26          // ADC pin for ACS712
-      // For a 5A ACS712
+#define VLTG_DVDR_PIN 27       // ADC pin for voltage divider
 #define ACS712_VCC 5.0          // ACS712 VCC is now 5V
 #define IDEAL_MID_POINT_VOLTAGE (ACS712_VCC / 2.0) // Ideal midpoint is now 2.5V
 #define ADC_INTERVAL_MS 1000    // Now 1000ms for 1 second interval
 #define ADC_RANGE 4096.0
-#define ADC_REF_VOLTAGE 3.3
+#define ADC_REF_VOLTAGE 5
+
+#define CHANNEL_0 0   // Your existing ADC0 operation
+#define CHANNEL_1 1   // 12V measurement
+
+// Voltage divider resistor values
+#define R1 30000.0f // 30k ohms
+#define R2 7500.0f  // 7.5k ohms
+
+// OLED parameters
+#define OLED_WIDTH 64
+#define OLED_HEIGHT 48
+#define OLED_ADDRESS 0x3C // Most common address, adjust if needed
+#define OLED_SDA_PIN 16    // Change these to your wiring
+#define OLED_SCL_PIN 17
+i2c_inst_t *i2c = i2c0;    // Change to i2c1 if needed
+
+// Global display object
+ssd1306_t disp;
+
 
 const tusb_desc_webusb_url_t desc_url = {
   .bLength         = 3 + sizeof(URL) - 1,
@@ -95,7 +114,7 @@ const tusb_desc_webusb_url_t desc_url = {
 static bool web_serial_connected = false;
 
 // GPIO Pins and Pin Mapping
-const uint GPIO_PINS[] = {11, 12, 13};
+const uint GPIO_PINS[] = {11, 12, 13, 14};
 const int NUM_GPIO_PINS = sizeof(GPIO_PINS) / sizeof(GPIO_PINS[0]);
 
 // Command definitions
@@ -103,6 +122,7 @@ enum {
   CMD_GPIO_11 = 0x0B,
   CMD_GPIO_12 = 0x0C,
   CMD_GPIO_13 = 0x0D,
+  CMD_GPIO_14 = 0x0E,
   CMD_ON = 0x01,
   CMD_OFF = 0x00
 };
@@ -118,14 +138,20 @@ void process_usb_commands(const uint8_t* buffer, uint32_t count);
 float read_current(void);
 void adc_task(void);
 float measure_midpoint(void);
+float read_voltage(uint8_t channel);
+void setup_adc();
+void update_oled(float current, float voltage);
 
 /*------------- MAIN -------------*/
 int main(void) {
   board_init();
   gpio_init_all();
-  adc_init(); // Initialize ADC
-  adc_gpio_init(ACS712_PIN);
-  adc_select_input(0);
+  i2c_init(i2c, 100 * 1000); // 100 kHz
+  gpio_set_function(OLED_SDA_PIN, GPIO_FUNC_I2C);
+  gpio_set_function(OLED_SCL_PIN, GPIO_FUNC_I2C);
+  gpio_pull_up(OLED_SDA_PIN);
+  gpio_pull_up(OLED_SCL_PIN);
+  setup_adc();
 
   // init device stack on configured roothub port
   tusb_rhport_init_t dev_init = {
@@ -141,7 +167,13 @@ int main(void) {
   if (cyw43_arch_init()) {
     printf("Wi-Fi init failed");
     return -1;
-}
+  }
+      // Initialize OLED
+  if (!ssd1306_init(&disp, OLED_WIDTH, OLED_HEIGHT, OLED_ADDRESS, i2c)) {
+    printf("OLED initialization failed!\n");
+  }
+    ssd1306_clear(&disp);
+    ssd1306_show(&disp); // Clear the display initially
 
 measured_midpoint_voltage = measure_midpoint();
 printf("Measured Midpoint: %.3f V\n", measured_midpoint_voltage);
@@ -326,6 +358,13 @@ void led_blinking_task(void) {
 
 }
 
+void setup_adc() {
+  adc_init();
+  adc_gpio_init(ACS712_PIN);  // ADC0 (GPIO26)
+  adc_gpio_init(VLTG_DVDR_PIN);  // ADC1 (GPIO27)
+  adc_set_round_robin(0);  // Disable round-robin mode
+}
+
 void gpio_init_all() {
   for (int i = 0; i < NUM_GPIO_PINS; i++) {
     gpio_init(GPIO_PINS[i]);
@@ -351,6 +390,9 @@ void process_usb_commands(const uint8_t* buffer, uint32_t count) {
             break;
         case CMD_GPIO_13:
             pin_index = 2;
+            break;
+        case CMD_GPIO_14:
+            pin_index = 3;
             break;
         default:
             // Unknown pin selector
@@ -384,6 +426,7 @@ float measure_midpoint(void) {
   }
   return total_voltage / num_samples;
 }
+
 float read_current() {
   uint16_t adc_value = adc_read();
   float voltage = (adc_value * ADC_REF_VOLTAGE) / ADC_RANGE; // Convert ADC reading to voltage
@@ -399,16 +442,58 @@ void adc_task(void) {
     last_adc_read_ms = board_millis(); // Update the last reading time
 
     float current = read_current();
-    // You can now use the 'current' value
-    //For example, sending it to the webUSB and CDC:
+    float voltage = read_voltage(CHANNEL_1);
     char current_str[32];
-    snprintf(current_str, sizeof(current_str), "Current: %.3f A\r\n", current);
-    uint32_t len = strlen(current_str);
+    char voltage_str[32];
+    snprintf(current_str, sizeof(current_str), "Current: %.2f A\r\n", current);
+    snprintf(voltage_str, sizeof(voltage_str), "Voltage: %.2f V\r\n", voltage);
 
-    uint8_t current_message[len];
-    for (int i = 0; i<len;i++){
-      current_message[i]= current_str[i];
-    }
-    echo_all(current_message, len);
+    // Combined message with both strings
+    uint32_t len_current = strlen(current_str);
+    uint32_t len_voltage = strlen(voltage_str);
+    uint32_t len_total = len_current + len_voltage;
+
+    uint8_t current_message[len_total + 1];
+    memcpy(current_message, current_str, len_current);
+    memcpy(current_message + len_current, voltage_str, len_voltage);
+    current_message[len_total] = '\0';
+
+    echo_all(current_message, len_total);
+    // Update OLED with current values
+    update_oled(current, voltage);
   }
+}
+
+float read_voltage(uint8_t channel) {
+  adc_select_input(channel);
+  sleep_us(10);  // Allow ADC to stabilize
+  uint16_t raw = adc_read();
+  float measured = (raw * ADC_REF_VOLTAGE) / 4095.0f;
+  
+  // Subtract an offset to account for ADC baseline (adjust as measured)
+  const float baseline_offset = 0.026f; // ~26 mV offset from ADC (tweak if needed)
+  if (measured > baseline_offset) {
+      measured -= baseline_offset;
+  } else {
+      measured = 0;
+  }
+  
+  // Apply voltage divider correction: Vin = V_measured * ((R1 + R2) / R2)
+  return measured * ((R1 + R2) / R2);
+}
+
+void update_oled(float current, float voltage) {
+  char current_str[32];
+  char voltage_str[32];
+
+  ssd1306_clear(&disp); // Clear the buffer
+
+  // Format and draw the voltage and current strings
+  snprintf(current_str, sizeof(current_str), "%.2f A", current);
+  snprintf(voltage_str, sizeof(voltage_str), "%.2f V", voltage);
+
+  ssd1306_draw_string(&disp, 0, 0, 1.6, voltage_str);
+  ssd1306_draw_string(&disp, 0, 16, 1.6, current_str);
+
+  ssd1306_show(&disp); // Update the physical display
 }
