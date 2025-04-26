@@ -43,25 +43,7 @@ jobs:
             --load \
             .
 
-      - name: "Build Docker image for arm v7"
-        if: steps.changes.outputs.docker == 'true' || steps.changes.outputs.version == 'true'
-        run: |
-          docker buildx build \
-            --platform linux/arm/v7 \
-            --load \
-            -t harbor.elementosystems.com/picow_usb/picowwebusb:v${{ env.VERSION }}-armv7 \
-            .
-
-      - name: "Build Docker image for arm64"
-        if: steps.changes.outputs.docker == 'true' || steps.changes.outputs.version == 'true'
-        run: |
-          docker buildx build \
-            --platform linux/arm64 \
-            -t harbor.elementosystems.com/picow_usb/picowwebusb:v${{ env.VERSION }}-arm64 \
-            --load \
-            .
-
-      - name: "Pull Docker image for amd6464"
+      - name: "Pull Docker image for amd64"
         if: steps.changes.outputs.docker != 'true' && steps.changes.outputs.version != 'true'
         run: |
           docker pull harbor.elementosystems.com/picow_usb/picowwebusb:v${{ env.VERSION }}-amd64
