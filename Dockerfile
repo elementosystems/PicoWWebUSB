@@ -1,14 +1,15 @@
 FROM ubuntu:22.04
 
-# Install required build tools and dependencies
+# Install required build tools and dependencies including the C++ standard library for arm-none-eabi
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
     ninja-build \
     git \
     wget \
-    libnewlib-arm-none-eabi \
     gcc-arm-none-eabi \
+    libnewlib-arm-none-eabi \
+    libstdc++-arm-none-eabi-newlib \
     python3 \
     python3-pip \
  && rm -rf /var/lib/apt/lists/*
