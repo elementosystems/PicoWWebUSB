@@ -30,16 +30,16 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
       - name: "Build Docker image for amd64"
         if: steps.changes.outputs.docker == 'true' || steps.changes.outputs.version == 'true'
-          run: |
-            docker buildx build \
-              --platform linux/amd64 \
-              -t harbor.elementosystems.com/picow_usb/picowwebusb:v${{ env.VERSION }}-amd64 \
-              --load \
-              .
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            -t harbor.elementosystems.com/picow_usb/picowwebusb:v${{ env.VERSION }}-amd64 \
+            --load \
+            .
       - name: "Pull Docker image for amd64"
         if: steps.changes.outputs.docker != 'true' && steps.changes.outputs.version != 'true'
-          run: |
-            docker pull harbor.elementosystems.com/picow_usb/picowwebusb:v${{ env.VERSION }}-amd64
+        run: |
+          docker pull harbor.elementosystems.com/picow_usb/picowwebusb:v${{ env.VERSION }}-amd64
       - name: Build project in container
         run: |
           docker run --rm -v "${{ github.workspace }}:/src" pico-build bash -c "mkdir -p build && cd build && cmake -DPICO_SDK_PATH=/root/.pico-sdk -G Ninja .. && ninja"
