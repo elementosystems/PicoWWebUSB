@@ -1,0 +1,21 @@
+name: Build PicoWWebUSB
+
+on:
+  pull_request:
+    branches: [ main, development ]
+
+jobs:
+  build:
+    runs-on: [self-hosted]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Build Docker image
+        run: |
+          docker build -t pico-build .
+
+      - name: Build project in container
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/src" pico-build bash -c "mkdir -p build && cd build && cmake -DPICO_SDK_PATH=/root/.pico-sdk -G Ninja .. && ninja"
