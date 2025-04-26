@@ -26,7 +26,7 @@ jobs:
         run: |
             docker buildx build \
             --platform linux/amd64 \
-            -t harbor.elementosystems.com/picow_usb/PicoWWebUSB:v${{ env.VERSION }}-amd64 \
+            -t harbor.elementosystems.com/picow_usb/picoWWebUSB:v${{ env.VERSION }}-amd64 \
             --load \
             .
 
