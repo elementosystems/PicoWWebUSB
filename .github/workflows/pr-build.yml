@@ -21,12 +21,13 @@ jobs:
         run: |
           # Extract version from version.json and store it in VERSION
           VERSION=$(jq -r '.version' version.json)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: "Build Docker image for arm64"
         run: |
             docker buildx build \
             --platform linux/amd64 \
-            -t harbor.elementosystems.com/picow_usb/picoWWebUSB:v${{ env.VERSION }}-amd64 \
+            -t harbor.elementosystems.com/picow_usb/picowwebusb:v${{ env.VERSION }}-amd64 \
             --load \
             .
 
