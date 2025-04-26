@@ -11,6 +11,7 @@ jobs:
     steps:
       - name: Clean workspace
         run: |
+          sudo chown -R sysadmin:sysadmin ${{ github.workspace }}
           rm -rf ${{ github.workspace }}/*
           rm -rf ${{ github.workspace }}/.??*
           
