@@ -7,6 +7,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ninja-build \
     git \
     wget \
+    libnewlib-arm-none-eabi \
+    libstdc++-arm-none-eabi-newlib \
     gcc-arm-none-eabi \
     libnewlib-arm-none-eabi \
     libstdc++-arm-none-eabi-newlib \
