@@ -9,6 +9,11 @@ jobs:
     runs-on: ["self-hosted", "Linux", "X64"]
 
     steps:
+      - name: Clean workspace
+        run: |
+          rm -rf ${{ github.workspace }}/*
+          rm -rf ${{ github.workspace }}/.??*
+          
       - name: Checkout code
         uses: actions/checkout@v3
       
@@ -25,14 +30,16 @@ jobs:
       - name: Verify version consistency
         id: get_version
         run: |
-          echo "VERSION=$(jq -r '.version' version.json)" >> $GITHUB_ENV
+          # Extract version from version.json and store it in VERSION
+          VERSION=$(jq -r '.version' version.json)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: "Build Docker image for amd64"
         if: steps.changes.outputs.docker == 'true' || steps.changes.outputs.version == 'true'
         run: |
           docker buildx build \
             --platform linux/amd64 \
-            -t harbor.elementosystems.com/picow_usb/PicoWWebUSB:v${{ env.VERSION }}-amd64 \
+            -t harbor.elementosystems.com/picow_usb/picowwebusb:v${{ env.VERSION }}-amd64 \
             --load \
             .
 
