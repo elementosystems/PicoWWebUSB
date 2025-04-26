@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     wget \
     libnewlib-arm-none-eabi \
+    libstdc++-arm-none-eabi-newlib \
     gcc-arm-none-eabi \
     python3 \
     python3-pip \
