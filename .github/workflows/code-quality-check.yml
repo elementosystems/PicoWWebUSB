@@ -1,0 +1,41 @@
+name: cppcheck-action-test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: cppcheck-test
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Run cppcheck
+        uses: deep5050/cppcheck-action@main
+        with:
+          github_token: ${{ secrets.GH_TOKEN }}
+        # Save cppcheck output to a file
+        continue-on-error: true
+        id: cppcheck
+
+      # Save the cppcheck output (assuming it outputs to cppcheck_report.txt)
+      - name: Save cppcheck report
+        run: |
+          # If the action doesn't output to a file, run cppcheck manually:
+          cppcheck --enable=all --inconclusive --quiet . 2> cppcheck_report.txt || true
+
+      # Post the report as a comment on the PR
+      - name: Comment PR with cppcheck report
+        if: github.event_name == 'pull_request'
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          filePath: cppcheck_report.txt
+          comment_tag: cppcheck-report
+
+      # Optionally, still publish the report to a branch if desired
+      # - name: publish report    
+      #   uses: mikeal/publish-to-github-action@master
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+      #     BRANCH_NAME: 'main'
