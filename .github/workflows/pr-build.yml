@@ -11,10 +11,19 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Build Docker image
+      
+      - name: "Verify version consistency"
         run: |
-          docker build -t pico-build .
+          # Extract version from version.json and store it in VERSION
+          VERSION=$(jq -r '.version' version.json)
+
+      - name: "Build Docker image for arm64"
+        run: |
+            docker buildx build \
+            --platform linux/amd64 \
+            -t harbor.elementosystems.com/picow_usb/PicoWWebUSB:v${{ env.VERSION }}-amd64 \
+            --load \
+            .
 
       - name: Build project in container
         run: |
