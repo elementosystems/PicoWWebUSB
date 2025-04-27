@@ -1,11 +1,9 @@
 name: Build and publish docker image for build
 
-permissions:
-  pull-requests: write
-
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
 jobs:
   build:
     runs-on: ["self-hosted", "Linux", "X64"]
