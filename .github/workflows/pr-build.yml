@@ -64,4 +64,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build project in container
         run: |
-          docker run --rm -v "${{ github.workspace }}:/src" harbor.elementosystems.com/picow_usb/picowwebusb:v${{ env.VERSION }}-amd64 bash -c "mkdir -p build && cd build && cmake -DPICO_SDK_PATH=/root/.pico-sdk -G Ninja .. && ninja"
+          docker run --rm -v "${{ github.workspace }}:/src" harbor.elementosystems.com/pico_webapp/picowwebusb:v${{ env.VERSION }}-amd64 bash -c "mkdir -p build && cd build && cmake -DPICO_SDK_PATH=/root/.pico-sdk -G Ninja .. && ninja"
