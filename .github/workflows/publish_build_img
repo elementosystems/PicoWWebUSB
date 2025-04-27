@@ -1,0 +1,54 @@
+name: Build and publish docker image for build
+
+permissions:
+  pull-requests: write
+
+on:
+  push:
+    branches: ["main"]
+jobs:
+  build:
+    runs-on: ["self-hosted", "Linux", "X64"]
+    steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /tmp/*
+          docker system prune -af --volumes
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Clean workspace
+        run: |
+          sudo rm -rf ${{ github.workspace }}/*
+          sudo rm -rf ${{ github.workspace }}/.??*      
+      - name: Checkout code
+        uses: actions/checkout@v3   
+      - name: Filter changed files
+        id: changes
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            docker:
+              - 'Dockerfile'
+            version:
+              - 'version.json' 
+      - name: Verify version consistency
+        id: get_version
+        run: |
+          # Extract version from version.json and store it in VERSION
+          VERSION=$(jq -r '.version' version.json)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+      - name: "Build Docker image for amd64"
+        if: steps.changes.outputs.docker == 'true' || steps.changes.outputs.version == 'true'
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            -t harbor.elementosystems.com/pico_webapp/picowwebusb:v${{ env.VERSION }}-amd64 \
+            --load \
+            .
+      - name: "Push Docker image for amd64"
+        if: steps.changes.outputs.docker == 'true' && steps.changes.outputs.version == 'true'
+        run: |
+          docker push harbor.elementosystems.com/pico_webapp/picowwebusb:v${{ env.VERSION }}-amd64
