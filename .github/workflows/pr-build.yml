@@ -1,5 +1,8 @@
 name: Build PicoWWebUSB Docker Images
 
+permissions:
+  pull-requests: write
+
 on:
   pull_request:
     branches: [ main, development ]
@@ -58,7 +61,7 @@ jobs:
         with:
           filePath: cppcheck_report.txt
           comment_tag: cppcheck-report
-          github_token: ${{ secrets.GH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build project in container
         run: |
           docker run --rm -v "${{ github.workspace }}:/src" harbor.elementosystems.com/picow_usb/picowwebusb:v${{ env.VERSION }}-amd64 bash -c "mkdir -p build && cd build && cmake -DPICO_SDK_PATH=/root/.pico-sdk -G Ninja .. && ninja"
