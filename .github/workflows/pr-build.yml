@@ -4,8 +4,8 @@ permissions:
   pull-requests: write
 
 on:
-  pull_request:
-    branches: [ main, development ]
+  pull_request_target:
+    branches: [main, development]
 jobs:
   build:
     runs-on: ["self-hosted", "Linux", "X64"]
