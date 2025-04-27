@@ -47,8 +47,8 @@ jobs:
           docker pull harbor.elementosystems.com/pico_webapp/picowwebusb:v${{ env.VERSION }}-amd64
       - name: Run cppcheck on source code
         run: |
-          docker run --rm -v "${{ github.workspace }}:/src" harbor.elementosystems.com/picow_usb/picowwebusb:v${{ env.VERSION }}-amd64 \
-            cppcheck --enable=all --inconclusive /src 2> cppcheck_report.txt
+          docker run --rm -v "${{ github.workspace }}:/src" harbor.elementosystems.com/picow_usb/picowwebusb:v${{ env.VERSION }}-amd64 bash -c "cppcheck --enable=all --inconclusive /src 2> cppcheck_report.txt"
+            
       - name: Comment PR with cppcheck report
         uses: thollander/actions-comment-pull-request@v2
         with:
