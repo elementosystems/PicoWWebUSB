@@ -35,6 +35,7 @@ jobs:
         with:
           filePath: cppcheck_report.txt
           comment_tag: cppcheck-report
+          github_token: ${{ secrets.GH_TOKEN }}
 
       # Optionally, still publish the report to a branch if desired
       # - name: publish report    
