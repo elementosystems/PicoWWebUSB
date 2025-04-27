@@ -14,6 +14,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libstdc++-arm-none-eabi-newlib \
     python3 \
     python3-pip \
+    cppcheck \
+    clang-format \
+    clang-tidy \
  && rm -rf /var/lib/apt/lists/*
 
 # Set HOME variable (usually /root in Docker)
