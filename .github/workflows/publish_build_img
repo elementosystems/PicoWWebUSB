@@ -2,8 +2,6 @@ name: publish docker image
 
 on:
   push:
-    branches:
-      - main
 jobs:
   build:
     runs-on: ["self-hosted", "Linux", "X64"]
