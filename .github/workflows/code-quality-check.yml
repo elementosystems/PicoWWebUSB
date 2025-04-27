@@ -9,11 +9,11 @@ jobs:
     name: cppcheck-test
     runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v2
       - name: Clean workspace
         run: |
           sudo rm -rf ${{ github.workspace }}/*
-          sudo rm -rf ${{ github.workspace }}/.??*   
+          sudo rm -rf ${{ github.workspace }}/.??* 
+      - uses: actions/checkout@v2
       - name: Run cppcheck
         uses: deep5050/cppcheck-action@main
         with:
