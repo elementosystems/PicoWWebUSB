@@ -21,14 +21,13 @@ jobs:
         # Save cppcheck output to a file
         continue-on-error: true
         id: cppcheck
-
+      - name: Ensure workspace is writable
+        run: sudo chmod -R ugo+w ${{ github.workspace }}
       # Save the cppcheck output (assuming it outputs to cppcheck_report.txt)
       - name: Save cppcheck report
         run: |
           # If the action doesn't output to a file, run cppcheck manually:
           cppcheck --enable=all --inconclusive --quiet . 2> cppcheck_report.txt || true
-      - name: Ensure workspace is writable
-        run: sudo chmod -R ugo+w ${{ github.workspace }}
       # Post the report as a comment on the PR
       - name: Comment PR with cppcheck report
         if: github.event_name == 'pull_request'
