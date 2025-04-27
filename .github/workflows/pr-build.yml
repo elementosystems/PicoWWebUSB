@@ -59,7 +59,7 @@ jobs:
       - name: Comment PR with cppcheck report
         uses: thollander/actions-comment-pull-request@v2
         with:
-          filePath: cppcheck_report.txt
+          filePath: src/cppcheck_report.txt
           comment_tag: cppcheck-report
           github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build project in container
