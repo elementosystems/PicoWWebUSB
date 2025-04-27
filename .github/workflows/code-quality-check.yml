@@ -9,6 +9,8 @@ jobs:
     name: cppcheck-test
     runs-on: self-hosted
     steps:
+      - name: Ensure workspace is writable
+        run: sudo chmod -R ugo+w ${{ github.workspace }}
       - name: Clean workspace
         run: |
           sudo rm -rf ${{ github.workspace }}/*
