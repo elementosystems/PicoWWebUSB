@@ -1,11 +1,11 @@
-name: Build PicoWWebUSB Docker Images
+name: Generate binary & perform cppcheck
 
 permissions:
   pull-requests: write
 
 on:
   pull_request_target:
-    branches: [main, development]
+    branches: ["main", "development"]
 jobs:
   build:
     runs-on: ["self-hosted", "Linux", "X64"]
