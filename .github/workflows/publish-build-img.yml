@@ -23,10 +23,10 @@ jobs:
           sudo rm -rf ${{ github.workspace }}/*
           sudo rm -rf ${{ github.workspace }}/.??*      
       - name: Checkout code
-        uses: actions/checkout@v3   
+        uses: actions/checkout@v4   
       - name: Filter changed files
         id: changes
-        uses: dorny/paths-filter@v2
+        uses: dorny/paths-filter@v3
         with:
           filters: |
             docker:
