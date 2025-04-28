@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 # Install required build tools and dependencies including the C++ standard library for arm-none-eabi
 RUN apt-get update && apt-get install -y --no-install-recommends \
