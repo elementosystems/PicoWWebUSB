@@ -50,4 +50,4 @@ jobs:
       - name: "Push Docker image for amd64"
         if: steps.changes.outputs.docker == 'true' || steps.changes.outputs.version == 'true'
         run: |
-          docker push --compress harbor.elementosystems.com/pico_webapp/picowwebusb:v${{ env.VERSION }}-amd64
+          docker push harbor.elementosystems.com/pico_webapp/picowwebusb:v${{ env.VERSION }}-amd64
