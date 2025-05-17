@@ -91,7 +91,7 @@ bool ssd1306_init(ssd1306_t *p, uint16_t width, uint16_t height, uint8_t address
 *	@param[in] p : instance of display
 *
 */
-void ssd1306_deinit(ssd1306_t *p);
+// void ssd1306_deinit(ssd1306_t *p);
 
 /**
 *	@brief turn off display
@@ -99,7 +99,7 @@ void ssd1306_deinit(ssd1306_t *p);
 *	@param[in] p : instance of display
 *
 */
-void ssd1306_poweroff(ssd1306_t *p);
+// void ssd1306_poweroff(ssd1306_t *p);
 
 /**
 	@brief turn on display
@@ -107,7 +107,7 @@ void ssd1306_poweroff(ssd1306_t *p);
 	@param[in] p : instance of display
 
 */
-void ssd1306_poweron(ssd1306_t *p);
+// void ssd1306_poweron(ssd1306_t *p);
 
 /**
 	@brief set contrast of display
@@ -116,7 +116,7 @@ void ssd1306_poweron(ssd1306_t *p);
 	@param[in] val : contrast
 
 */
-void ssd1306_contrast(ssd1306_t *p, uint8_t val);
+// void ssd1306_contrast(ssd1306_t *p, uint8_t val);
 
 /**
 	@brief set invert display
@@ -125,7 +125,7 @@ void ssd1306_contrast(ssd1306_t *p, uint8_t val);
 	@param[in] inv : inv==0: disable inverting, inv!=0: invert
 
 */
-void ssd1306_invert(ssd1306_t *p, uint8_t inv);
+// void ssd1306_invert(ssd1306_t *p, uint8_t inv);
 
 /**
 	@brief display buffer, should be called on change
@@ -181,7 +181,7 @@ void ssd1306_draw_line(ssd1306_t *p, int32_t x1, int32_t y1, int32_t x2, int32_t
 	@param[in] width : width of square
 	@param[in] height : height of square
 */
-void ssd1306_clear_square(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+// void ssd1306_clear_square(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
 
 /**
 	@brief draw filled square at given position with given size
@@ -203,7 +203,7 @@ void ssd1306_draw_square(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t width, u
 	@param[in] width : width of square
 	@param[in] height : height of square
 */
-void ssd1306_draw_empty_square(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+// void ssd1306_draw_empty_square(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
 
 /**
 	@brief draw monochrome bitmap with offset
@@ -223,7 +223,7 @@ void ssd1306_bmp_show_image_with_offset(ssd1306_t *p, const uint8_t *data, const
 	@param[in] data : image data (whole file)
 	@param[in] size : size of image data in bytes
 */
-void ssd1306_bmp_show_image(ssd1306_t *p, const uint8_t *data, const long size);
+// void ssd1306_bmp_show_image(ssd1306_t *p, const uint8_t *data, const long size);
 
 /**
 	@brief draw char with given font
@@ -246,7 +246,7 @@ void ssd1306_draw_char_with_font(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t 
 	@param[in] scale : scale font to n times of original size (default should be 1)
 	@param[in] c : character to draw
 */
-void ssd1306_draw_char(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t scale, char c);
+// void ssd1306_draw_char(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t scale, char c);
 
 /**
 	@brief draw string with given font

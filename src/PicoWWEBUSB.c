@@ -262,27 +262,27 @@ void echo_all(const uint8_t buf[], uint32_t count) {
 //--------------------------------------------------------------------+
 
 // Invoked when device is mounted
-void tud_mount_cb(void) {
-  blink_interval_ms = BLINK_MOUNTED;
-}
+// void tud_mount_cb(void) {
+//   blink_interval_ms = BLINK_MOUNTED;
+// }
 
 // Invoked when device is unmounted
-void tud_umount_cb(void) {
-  blink_interval_ms = BLINK_NOT_MOUNTED;
-}
+// void tud_umount_cb(void) {
+//   blink_interval_ms = BLINK_NOT_MOUNTED;
+// }
 
 // Invoked when usb bus is suspended
 // remote_wakeup_en : if host allow us  to perform remote wakeup
 // Within 7ms, device must draw an average of current less than 2.5 mA from bus
-void tud_suspend_cb(bool remote_wakeup_en) {
-  (void)remote_wakeup_en;
-  blink_interval_ms = BLINK_SUSPENDED;
-}
+// void tud_suspend_cb(bool remote_wakeup_en) {
+//   (void)remote_wakeup_en;
+//   blink_interval_ms = BLINK_SUSPENDED;
+// }
 
 // Invoked when usb bus is resumed
-void tud_resume_cb(void) {
-  blink_interval_ms = tud_mounted() ? BLINK_MOUNTED : BLINK_NOT_MOUNTED;
-}
+// void tud_resume_cb(void) {
+//   blink_interval_ms = tud_mounted() ? BLINK_MOUNTED : BLINK_NOT_MOUNTED;
+// }
 
 //--------------------------------------------------------------------+
 // WebUSB use vendor class
@@ -291,72 +291,72 @@ void tud_resume_cb(void) {
 // Invoked when a control transfer occurred on an interface of this class
 // Driver response accordingly to the request and the transfer stage (setup/data/ack)
 // return false to stall control endpoint (e.g unsupported request)
-bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const* request) {
-  // nothing to with DATA & ACK stage
-  if (stage != CONTROL_STAGE_SETUP) return true;
+// bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const* request) {
+//   // nothing to with DATA & ACK stage
+//   if (stage != CONTROL_STAGE_SETUP) return true;
 
-  switch (request->bmRequestType_bit.type) {
-    case TUSB_REQ_TYPE_VENDOR:
-      switch (request->bRequest) {
-        case VENDOR_REQUEST_WEBUSB:
-          // match vendor request in BOS descriptor
-          // Get landing page url
-          return tud_control_xfer(rhport, request, (void*)(uintptr_t)&desc_url, desc_url.bLength);
+//   switch (request->bmRequestType_bit.type) {
+//     case TUSB_REQ_TYPE_VENDOR:
+//       switch (request->bRequest) {
+//         case VENDOR_REQUEST_WEBUSB:
+//           // match vendor request in BOS descriptor
+//           // Get landing page url
+//           return tud_control_xfer(rhport, request, (void*)(uintptr_t)&desc_url, desc_url.bLength);
 
-        case VENDOR_REQUEST_MICROSOFT:
-          if (request->wIndex == 7) {
-            // Get Microsoft OS 2.0 compatible descriptor
-            uint16_t total_len;
-            memcpy(&total_len, desc_ms_os_20 + 8, 2);
+//         case VENDOR_REQUEST_MICROSOFT:
+//           if (request->wIndex == 7) {
+//             // Get Microsoft OS 2.0 compatible descriptor
+//             uint16_t total_len;
+//             memcpy(&total_len, desc_ms_os_20 + 8, 2);
 
-            return tud_control_xfer(rhport, request, (void*)(uintptr_t)desc_ms_os_20, total_len);
-          } else {
-            return false;
-          }
+//             return tud_control_xfer(rhport, request, (void*)(uintptr_t)desc_ms_os_20, total_len);
+//           } else {
+//             return false;
+//           }
 
-        default: break;
-      }
-      break;
+//         default: break;
+//       }
+//       break;
 
-    case TUSB_REQ_TYPE_CLASS:
-      if (request->bRequest == 0x22) {
-        // Webserial simulate the CDC_REQUEST_SET_CONTROL_LINE_STATE (0x22) to connect and disconnect.
-        web_serial_connected = (request->wValue != 0);
+//     case TUSB_REQ_TYPE_CLASS:
+//       if (request->bRequest == 0x22) {
+//         // Webserial simulate the CDC_REQUEST_SET_CONTROL_LINE_STATE (0x22) to connect and disconnect.
+//         web_serial_connected = (request->wValue != 0);
 
-        // Always lit LED if connected
-        if (web_serial_connected) {
-          board_led_write(true);
-          blink_interval_ms = BLINK_ALWAYS_ON;
+//         // Always lit LED if connected
+//         if (web_serial_connected) {
+//           board_led_write(true);
+//           blink_interval_ms = BLINK_ALWAYS_ON;
 
-          tud_vendor_write_str("\r\nWebUSB interface connected\r\n");
-          tud_vendor_write_flush();
-        } else {
-          blink_interval_ms = BLINK_MOUNTED;
-        }
+//           tud_vendor_write_str("\r\nWebUSB interface connected\r\n");
+//           tud_vendor_write_flush();
+//         } else {
+//           blink_interval_ms = BLINK_MOUNTED;
+//         }
 
-        // response with status OK
-        return tud_control_status(rhport, request);
-      }
-      break;
+//         // response with status OK
+//         return tud_control_status(rhport, request);
+//       }
+//       break;
 
-    default: break;
-  }
+//     default: break;
+//   }
 
-  // stall unknown request
-  return false;
-}
+//   // stall unknown request
+//   return false;
+// }
 
-void tud_vendor_rx_cb(uint8_t itf, uint8_t const* buffer, uint16_t bufsize) {
-  (void) itf;
+// void tud_vendor_rx_cb(uint8_t itf, uint8_t const* buffer, uint16_t bufsize) {
+//   (void) itf;
 
-  process_usb_commands(buffer, bufsize);
-  echo_all(buffer, bufsize);
+//   process_usb_commands(buffer, bufsize);
+//   echo_all(buffer, bufsize);
 
-  // if using RX buffered is enabled, we need to flush the buffer to make room for new data
-  #if CFG_TUD_VENDOR_RX_BUFSIZE > 0
-  tud_vendor_read_flush();
-  #endif
-}
+//   // if using RX buffered is enabled, we need to flush the buffer to make room for new data
+//   #if CFG_TUD_VENDOR_RX_BUFSIZE > 0
+//   tud_vendor_read_flush();
+//   #endif
+// }
 
 //--------------------------------------------------------------------+
 // USB CDC
@@ -376,20 +376,20 @@ void cdc_task(void) {
 }
 
 // Invoked when cdc when line state changed e.g connected/disconnected
-void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts) {
-  (void)itf;
+// void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts) {
+//   (void)itf;
 
-  // connected
-  if (dtr && rts) {
-    // print initial message when connected
-    tud_cdc_write_str("\r\nConnect to the PowerFlash Utility\r\n");
-  }
-}
+//   // connected
+//   if (dtr && rts) {
+//     // print initial message when connected
+//     tud_cdc_write_str("\r\nConnect to the PowerFlash Utility\r\n");
+//   }
+// }
 
 // Invoked when CDC interface received data from host
-void tud_cdc_rx_cb(uint8_t itf) {
-  (void)itf;
-}
+// void tud_cdc_rx_cb(uint8_t itf) {
+//   (void)itf;
+// }
 
 //--------------------------------------------------------------------+
 // BLINKING TASK
