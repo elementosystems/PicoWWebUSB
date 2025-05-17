@@ -27,9 +27,10 @@ if (EXISTS ${picoVscode})
 endif()
 # ====================================================================================
 set(PICO_BOARD pico_w CACHE STRING "Board type")
-
+set(FREERTOS_KERNEL_PATH "${USERHOME}/FreeRTOS-Kernel" CACHE PATH "Path to the FreeRTOS Kernel")
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
+include(FreeRTOS_Kernel_import.cmake)
 
 project(PicoWWEBUSB C CXX ASM)
 
@@ -38,6 +39,8 @@ pico_sdk_init()
 
 #add_subdirectory(tinyusb/src)
 # Add executable. Default name is the project name, version 0.1
+SET(FREERTOS_CONFIG_FILE_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/src/configs/FreeRTOS-Kernel" CACHE STRING "Local Config")
+ # FreeRTOS config files
 
 add_executable(PicoWWEBUSB src/PicoWWEBUSB.c 
                             src/usb_descriptors.c
@@ -45,7 +48,7 @@ add_executable(PicoWWEBUSB src/PicoWWEBUSB.c
 #tinyusb_target_add(PicoWWEBUSB)
 
 pico_set_program_name(PicoWWEBUSB "PicoWWEBUSB")
-pico_set_program_version(PicoWWEBUSB "0.1")
+pico_set_program_version(PicoWWEBUSB "0.2.0")
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(PicoWWEBUSB 0)
@@ -59,18 +62,22 @@ target_link_libraries(PicoWWEBUSB
         pico_cyw43_arch_none        
         hardware_adc
         hardware_i2c
+        FREERTOS_PORT
+        FreeRTOS-Kernel-Heap4
         )
 
 # Add the standard include files to the build
 target_include_directories(PicoWWEBUSB PRIVATE BEFORE
         ${CMAKE_CURRENT_LIST_DIR}/src
         ${CMAKE_CURRENT_LIST_DIR}/tinyusb/src
+        ${FREERTOS_CONFIG_FILE_DIRECTORY}
 )
 
 # Add any user requested libraries
-target_link_libraries(PicoWWEBUSB 
-        pico_cyw43_arch_none
-        pico_stdlib
-        )
+# target_link_libraries(PicoWWEBUSB 
+#         pico_cyw43_arch_none
+#         pico_stdlib
+#         FreeRTOS
+#         )
 
 pico_add_extra_outputs(PicoWWEBUSB)
