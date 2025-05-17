@@ -60,9 +60,9 @@ jobs:
       - name: Comment PR with cppcheck report
         uses: thollander/actions-comment-pull-request@v3
         with:
-          filePath: ${{ github.workspace }}/cppcheck_report.txt
-          comment_tag: cppcheck-report
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          file-path: ${{ github.workspace }}/cppcheck_report.txt
+          comment-tag: cppcheck-report
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build project in container
         run: |
           docker run --rm -v "${{ github.workspace }}:/src" harbor.elementosystems.com/pico_webapp/picowwebusb:v${{ env.VERSION }}-amd64 bash -c "mkdir -p build && cd build && cmake -DPICO_SDK_PATH=/root/.pico-sdk -G Ninja .. && ninja"
