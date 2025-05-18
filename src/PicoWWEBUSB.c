@@ -43,6 +43,8 @@
  *   - run 'sudo udevadm control --reload-rules && sudo udevadm trigger'
  */
 
+#include <FreeRTOS.h>
+#include <task.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -82,8 +84,12 @@ static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
 #define ACS712_VCC 5.0          // ACS712 VCC is now 5V
 #define IDEAL_MID_POINT_VOLTAGE (ACS712_VCC / 2.0) // Ideal midpoint is now 2.5V
 #define ADC_INTERVAL_MS 1000    // Now 1000ms for 1 second interval
-#define ADC_RANGE 4096.0
-#define ADC_REF_VOLTAGE 5
+#define ADC_RANGE 4095
+#define ADC_REF_VOLTAGE 3.3f
+
+#define OS_DELAY_10MS 10
+#define OS_DELAY_1MS 1
+#define OS_DELAY_100MS 100
 
 #define CHANNEL_0 0   // Your existing ADC0 operation
 #define CHANNEL_1 1   // 12V measurement
@@ -135,15 +141,37 @@ void led_blinking_task(void);
 void cdc_task(void);
 void gpio_init_all(); // Function prototype for gpio_init_all
 void process_usb_commands(const uint8_t* buffer, uint32_t count);
-float read_current(void);
+float read_current(uint8_t channel);
 void adc_task(void);
 float measure_midpoint(void);
 float read_voltage(uint8_t channel);
 void setup_adc();
 void update_oled(float current, float voltage);
 
+void ostask_cont_c0(void *pvParameters) {
+    while (1) {
+    tud_task(); // tinyusb device task
+    cdc_task();
+    led_blinking_task();
+    // led_blinking_task();
+    // adc_task();
+       // tinyusb device task
+    //vTaskDelay(pdMS_TO_TICKS(OS_DELAY_10MS)); // Delay for 10ms
+    }
+}
+
+void ostask_10ms_c1(void *pvParameters) {
+    while (1) {
+    adc_task();
+       // tinyusb device task
+    vTaskDelay(pdMS_TO_TICKS(OS_DELAY_10MS)); // Delay for 10ms
+    }
+}
+
 /*------------- MAIN -------------*/
 int main(void) {
+  TaskHandle_t xHandle0; 
+  TaskHandle_t xHandle1; 
   board_init();
   gpio_init_all();
   i2c_init(i2c, 100 * 1000); // 100 kHz
@@ -180,11 +208,32 @@ printf("Measured Midpoint: %.3f V\n", measured_midpoint_voltage);
 //We calculate the new mV per AMP
 mV_PER_AMP = (measured_midpoint_voltage- IDEAL_MID_POINT_VOLTAGE) /0.0391708 ;
 printf("New mv per amp = %.3f", mV_PER_AMP);
+
+xTaskCreate(
+    ostask_cont_c0,  // Task function
+    "CONTINUOUS_TASK",    // Name
+    4096,              // Stack size
+    NULL,             // Parameters
+    255,                // Priority
+    &xHandle0         // Task handle
+);
+
+xTaskCreate(
+    ostask_10ms_c1,  // Task function
+    "TEN_MS_TASK",    // Name
+    4096,              // Stack size
+    NULL,             // Parameters
+    10,                // Priority
+    &xHandle1         // Task handle
+);
+
+vTaskCoreAffinitySet(xHandle0, (1 << 0)); // Core 0
+vTaskCoreAffinitySet(xHandle1, (1 << 1)); // Core 1
+
+  // Start FreeRTOS scheduler
+vTaskStartScheduler();
   while (1) {
-    tud_task(); // tinyusb device task
-    cdc_task();
-    led_blinking_task();
-    adc_task();
+
   }
 }
 
@@ -208,106 +257,106 @@ void echo_all(const uint8_t buf[], uint32_t count) {
   }
 }
 
-//--------------------------------------------------------------------+
+// --------------------------------------------------------------------+
 // Device callbacks
-//--------------------------------------------------------------------+
+// --------------------------------------------------------------------+
 
 // Invoked when device is mounted
-// void tud_mount_cb(void) {
-//   blink_interval_ms = BLINK_MOUNTED;
-// }
+void tud_mount_cb(void) {
+  blink_interval_ms = BLINK_MOUNTED;
+}
 
 // Invoked when device is unmounted
-// void tud_umount_cb(void) {
-//   blink_interval_ms = BLINK_NOT_MOUNTED;
-// }
+void tud_umount_cb(void) {
+  blink_interval_ms = BLINK_NOT_MOUNTED;
+}
 
 // Invoked when usb bus is suspended
 // remote_wakeup_en : if host allow us  to perform remote wakeup
 // Within 7ms, device must draw an average of current less than 2.5 mA from bus
-// void tud_suspend_cb(bool remote_wakeup_en) {
-//   (void)remote_wakeup_en;
-//   blink_interval_ms = BLINK_SUSPENDED;
-// }
+void tud_suspend_cb(bool remote_wakeup_en) {
+  (void)remote_wakeup_en;
+  blink_interval_ms = BLINK_SUSPENDED;
+}
 
 // Invoked when usb bus is resumed
-// void tud_resume_cb(void) {
-//   blink_interval_ms = tud_mounted() ? BLINK_MOUNTED : BLINK_NOT_MOUNTED;
-// }
+void tud_resume_cb(void) {
+  blink_interval_ms = tud_mounted() ? BLINK_MOUNTED : BLINK_NOT_MOUNTED;
+}
 
-//--------------------------------------------------------------------+
+// --------------------------------------------------------------------+
 // WebUSB use vendor class
-//--------------------------------------------------------------------+
+// --------------------------------------------------------------------+
 
 // Invoked when a control transfer occurred on an interface of this class
 // Driver response accordingly to the request and the transfer stage (setup/data/ack)
 // return false to stall control endpoint (e.g unsupported request)
-// bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const* request) {
-//   // nothing to with DATA & ACK stage
-//   if (stage != CONTROL_STAGE_SETUP) return true;
+bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const* request) {
+  // nothing to with DATA & ACK stage
+  if (stage != CONTROL_STAGE_SETUP) return true;
 
-//   switch (request->bmRequestType_bit.type) {
-//     case TUSB_REQ_TYPE_VENDOR:
-//       switch (request->bRequest) {
-//         case VENDOR_REQUEST_WEBUSB:
-//           // match vendor request in BOS descriptor
-//           // Get landing page url
-//           return tud_control_xfer(rhport, request, (void*)(uintptr_t)&desc_url, desc_url.bLength);
+  switch (request->bmRequestType_bit.type) {
+    case TUSB_REQ_TYPE_VENDOR:
+      switch (request->bRequest) {
+        case VENDOR_REQUEST_WEBUSB:
+          // match vendor request in BOS descriptor
+          // Get landing page url
+          return tud_control_xfer(rhport, request, (void*)(uintptr_t)&desc_url, desc_url.bLength);
 
-//         case VENDOR_REQUEST_MICROSOFT:
-//           if (request->wIndex == 7) {
-//             // Get Microsoft OS 2.0 compatible descriptor
-//             uint16_t total_len;
-//             memcpy(&total_len, desc_ms_os_20 + 8, 2);
+        case VENDOR_REQUEST_MICROSOFT:
+          if (request->wIndex == 7) {
+            // Get Microsoft OS 2.0 compatible descriptor
+            uint16_t total_len;
+            memcpy(&total_len, desc_ms_os_20 + 8, 2);
 
-//             return tud_control_xfer(rhport, request, (void*)(uintptr_t)desc_ms_os_20, total_len);
-//           } else {
-//             return false;
-//           }
+            return tud_control_xfer(rhport, request, (void*)(uintptr_t)desc_ms_os_20, total_len);
+          } else {
+            return false;
+          }
 
-//         default: break;
-//       }
-//       break;
+        default: break;
+      }
+      break;
 
-//     case TUSB_REQ_TYPE_CLASS:
-//       if (request->bRequest == 0x22) {
-//         // Webserial simulate the CDC_REQUEST_SET_CONTROL_LINE_STATE (0x22) to connect and disconnect.
-//         web_serial_connected = (request->wValue != 0);
+    case TUSB_REQ_TYPE_CLASS:
+      if (request->bRequest == 0x22) {
+        // Webserial simulate the CDC_REQUEST_SET_CONTROL_LINE_STATE (0x22) to connect and disconnect.
+        web_serial_connected = (request->wValue != 0);
 
-//         // Always lit LED if connected
-//         if (web_serial_connected) {
-//           board_led_write(true);
-//           blink_interval_ms = BLINK_ALWAYS_ON;
+        // Always lit LED if connected
+        if (web_serial_connected) {
+          board_led_write(true);
+          blink_interval_ms = BLINK_ALWAYS_ON;
 
-//           tud_vendor_write_str("\r\nWebUSB interface connected\r\n");
-//           tud_vendor_write_flush();
-//         } else {
-//           blink_interval_ms = BLINK_MOUNTED;
-//         }
+          tud_vendor_write_str("\r\nWebUSB interface connected\r\n");
+          tud_vendor_write_flush();
+        } else {
+          blink_interval_ms = BLINK_MOUNTED;
+        }
 
-//         // response with status OK
-//         return tud_control_status(rhport, request);
-//       }
-//       break;
+        // response with status OK
+        return tud_control_status(rhport, request);
+      }
+      break;
 
-//     default: break;
-//   }
+    default: break;
+  }
 
-//   // stall unknown request
-//   return false;
-// }
+  // stall unknown request
+  return false;
+}
 
-// void tud_vendor_rx_cb(uint8_t itf, uint8_t const* buffer, uint16_t bufsize) {
-//   (void) itf;
+void tud_vendor_rx_cb(uint8_t itf, uint8_t const* buffer, uint16_t bufsize) {
+  (void) itf;
 
-//   process_usb_commands(buffer, bufsize);
-//   echo_all(buffer, bufsize);
+  process_usb_commands(buffer, bufsize);
+  echo_all(buffer, bufsize);
 
-//   // if using RX buffered is enabled, we need to flush the buffer to make room for new data
-//   #if CFG_TUD_VENDOR_RX_BUFSIZE > 0
-//   tud_vendor_read_flush();
-//   #endif
-// }
+  // if using RX buffered is enabled, we need to flush the buffer to make room for new data
+  #if CFG_TUD_VENDOR_RX_BUFSIZE > 0
+  tud_vendor_read_flush();
+  #endif
+}
 
 //--------------------------------------------------------------------+
 // USB CDC
@@ -326,21 +375,21 @@ void cdc_task(void) {
   }
 }
 
-// Invoked when cdc when line state changed e.g connected/disconnected
-// void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts) {
-//   (void)itf;
+//Invoked when cdc when line state changed e.g connected/disconnected
+void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts) {
+  (void)itf;
 
-//   // connected
-//   if (dtr && rts) {
-//     // print initial message when connected
-//     tud_cdc_write_str("\r\nConnect to the PowerFlash Utility\r\n");
-//   }
-// }
+  // connected
+  if (dtr && rts) {
+    // print initial message when connected
+    tud_cdc_write_str("\r\nConnect to the PowerFlash Utility\r\n");
+  }
+}
 
 // Invoked when CDC interface received data from host
-// void tud_cdc_rx_cb(uint8_t itf) {
-//   (void)itf;
-// }
+void tud_cdc_rx_cb(uint8_t itf) {
+  (void)itf;
+}
 
 //--------------------------------------------------------------------+
 // BLINKING TASK
@@ -427,7 +476,8 @@ float measure_midpoint(void) {
   return total_voltage / num_samples;
 }
 
-float read_current() {
+float read_current(uint8_t channel) {
+  adc_select_input(channel);
   uint16_t adc_value = adc_read();
   float voltage = (adc_value * ADC_REF_VOLTAGE) / ADC_RANGE; // Convert ADC reading to voltage
   float current = (voltage - measured_midpoint_voltage) / mV_PER_AMP;
@@ -441,7 +491,7 @@ void adc_task(void) {
   if (board_millis() - last_adc_read_ms >= ADC_INTERVAL_MS) {
     last_adc_read_ms = board_millis(); // Update the last reading time
 
-    float current = read_current();
+    float current = read_current(CHANNEL_0);
     float voltage = read_voltage(CHANNEL_1);
     char current_str[32];
     char voltage_str[32];
@@ -468,18 +518,18 @@ float read_voltage(uint8_t channel) {
   adc_select_input(channel);
   sleep_us(10);  // Allow ADC to stabilize
   uint16_t raw = adc_read();
-  float measured = (raw * ADC_REF_VOLTAGE) / 4095.0f;
+  float measured = (raw * ADC_REF_VOLTAGE) / ADC_RANGE;
   
-  // Subtract an offset to account for ADC baseline (adjust as measured)
-  const float baseline_offset = 0.026f; // ~26 mV offset from ADC (tweak if needed)
-  if (measured > baseline_offset) {
-      measured -= baseline_offset;
-  } else {
-      measured = 0;
-  }
+  // // Subtract an offset to account for ADC baseline (adjust as measured)
+  // const float baseline_offset = 0.026f; // ~26 mV offset from ADC (tweak if needed)
+  // if (measured > baseline_offset) {
+  //     measured -= baseline_offset;
+  // } else {
+  //     measured = 0;
+  // }
   
   // Apply voltage divider correction: Vin = V_measured * ((R1 + R2) / R2)
-  return measured * ((R1 + R2) / R2);
+  return measured * ((R1 + R2)/R2);
 }
 
 void update_oled(float current, float voltage) {
@@ -489,11 +539,21 @@ void update_oled(float current, float voltage) {
   ssd1306_clear(&disp); // Clear the buffer
 
   // Format and draw the voltage and current strings
-  snprintf(current_str, sizeof(current_str), "%.2f A", current);
-  snprintf(voltage_str, sizeof(voltage_str), "%.2f V", voltage);
+  snprintf(current_str, sizeof(current_str), "%.1f A", current);
+  snprintf(voltage_str, sizeof(voltage_str), "%.1f V", voltage);
 
   ssd1306_draw_string(&disp, 0, 0, 1.6, voltage_str);
   ssd1306_draw_string(&disp, 0, 16, 1.6, current_str);
 
   ssd1306_show(&disp); // Update the physical display
+}
+
+//--------------------------------------------------------------------+
+// FreeRTOS Application Hooks
+//--------------------------------------------------------------------+
+void vApplicationPassiveIdleHook( void )
+{
+  // This hook is called when a core other than core 0 is idle.
+  // You can put low power management code here, for example.
+  // For now, we'll leave it empty.
 }

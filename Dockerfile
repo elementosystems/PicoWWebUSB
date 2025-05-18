@@ -25,6 +25,8 @@ RUN git clone --depth=1 https://github.com/raspberrypi/pico-sdk.git ${HOME}/.pic
  && cd ${HOME}/.pico-sdk \
  && git submodule update --init
 
+RUN git clone https://github.com/FreeRTOS/FreeRTOS-Kernel.git ${HOME}/FreeRTOS-Kernel 
+
 # Set working directory (mount your project here)
 WORKDIR /src
 
