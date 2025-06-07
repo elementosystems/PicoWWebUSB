@@ -1,7 +1,8 @@
 FROM ubuntu:24.04
 
 # Install required build tools and dependencies including the C++ standard library for arm-none-eabi
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get upgrade -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
     ninja-build \
