@@ -15,7 +15,7 @@ jobs:
           sudo rm -rf /tmp/*
           docker system prune -af --volumes
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: harbor.elementosystems.com
           username: ${{ secrets.HARBOR_USER }}
@@ -25,10 +25,10 @@ jobs:
           sudo rm -rf ${{ github.workspace }}/*
           sudo rm -rf ${{ github.workspace }}/.??*      
       - name: Checkout code
-        uses: actions/checkout@v4   
+        uses: actions/checkout@v6   
       - name: Filter changed files
         id: changes
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             docker:
